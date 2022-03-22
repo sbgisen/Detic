@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="input" default="/hand_camera/color/image_rect_color"/>
+  <arg name="detection_threshold" default="0.5"/>
+  <arg name="config" default="$(find detectron2_ros)/Detic/configs/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.yaml"/>
+  <arg name="model" default="$(find detectron2_ros)/models/Detic_LCOCOI21k_CLIP_SwinB_896b32_4x_ft4x_max-size.pth"/>
+  <arg name="visualization" default="true"/>
+  <node name="detic_ros" pkg="detic_ros" type="detection.py" output="screen">
+    <param name="input" value="$(arg input)"/>
+    <param name="detection_threshold" value="$(arg detection_threshold)"/>
+    <param name="config" value="$(arg config)"/>
+    <param name="model" value="$(arg model)"/>
+    <param name="visualization" value="$(arg visualization)"/>
+  </node>
+</launch>

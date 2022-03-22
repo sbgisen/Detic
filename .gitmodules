@@ -4,3 +4,6 @@
 [submodule "third_party/CenterNet2"]
 	path = third_party/CenterNet2
 	url = https://github.com/xingyizhou/CenterNet2.git
+[submodule "detectron2"]
+	path = detectron2
+	url = git@github.com:facebookresearch/detectron2.git

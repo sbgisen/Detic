@@ -1,0 +1,27 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+opencv-python = "*"
+mss = "*"
+timm = "*"
+dataclasses = "*"
+ftfy = "*"
+regex = "*"
+fasttext = "*"
+scikit-learn = "*"
+lvis = "*"
+nltk = "*"
+torch = "*"
+torchvision = "*"
+cython = "*"
+pyyaml = "==5.1"
+rospkg = "*"
+
+
+[requires]
+python_version = "3.8"
+
+[dev-packages]
