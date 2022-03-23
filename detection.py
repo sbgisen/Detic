@@ -22,6 +22,8 @@ sys.path.insert(0, pkg + '/third_party/CenterNet2/projects/CenterNet2/')
 from centernet.config import add_centernet_config
 from sensor_msgs.msg import Image, RegionOfInterest
 from pcl_msgs.msg import PointIndices
+from jsk_recognition_msgs.msg import ClassificationResult
+from jsk_recognition_msgs.msg import ClusterPointIndices
 
 from detic.config import add_detic_config
 from detic.modeling.utils import reset_cls_test
@@ -74,7 +76,9 @@ class Detectron2node(object):
         self._class_names = MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]).get("thing_classes", None)
 
         self._visualization = self.load_param('~visualization',True)
-        self._result_pub = rospy.Publisher('~result', Result, queue_size=1)
+        # self._result_pub = rospy.Publisher('~result', Result, queue_size=1)
+        self._result_pub = rospy.Publisher('~result', ClassificationResult, queue_size=1)
+        self._cluster_pub = rospy.Publisher('~cluster', ClusterPointIndices, queue_size=1)
         self._vis_pub = rospy.Publisher('~visualization', Image, queue_size=1)
         self._sub = rospy.Subscriber(
             self.load_param(
@@ -108,9 +112,10 @@ class Detectron2node(object):
 
                 outputs = self.predictor(np_image)
                 result = outputs["instances"].to("cpu")
-                result_msg = self.getResult(result)
+                result_msg, cluster_msg = self.getResult(result)
 
                 self._result_pub.publish(result_msg)
+                self._cluster_pub.publish(cluster_msg)
 
                 # Visualize results
                 if self._visualization:
@@ -132,30 +137,36 @@ class Detectron2node(object):
         else:
             return
 
-        result_msg = Result()
-        result_msg.header = self._header
-        result_msg.class_ids = predictions.pred_classes if predictions.has("pred_classes") else None
-        result_msg.class_names = np.array(self._class_names)[result_msg.class_ids.numpy()]
-        result_msg.scores = predictions.scores if predictions.has("scores") else None
+        # result_msg = Result()
+        # result_msg.header = self._header
+        # result_msg.class_ids = predictions.pred_classes if predictions.has("pred_classes") else None
+        # result_msg.class_names = np.array(self._class_names)[result_msg.class_ids.numpy()]
+        # result_msg.scores = predictions.scores if predictions.has("scores") else None
 
+        result = ClassificationResult()
+        result.header = self._header
+        result.classifier = 'Detic'
+        result.labels = predictions.pred_classes if predictions.has("pred_classes") else None
+        result.label_names = np.array(self._class_names)[result.labels.numpy()]
+        result.label_proba = predictions.scores if predictions.has("scores") else None
+
+        cluster = ClusterPointIndices()
+        cluster.header = self._header
         for i, (x1, y1, x2, y2) in enumerate(boxes):
-            # mask = np.zeros(masks[i].shape, dtype="uint8")
-            # mask[masks[i, :, :]]=255
-            # mask = self._bridge.cv2_to_imgmsg(mask)
-            # result_msg.masks.append(mask)
             indices = PointIndices()
-            rospy.loginfo(np.where(masks[i]))
-            indices.indices = [i * masks[i].shape[1] + j for i, j in np.where(masks[i])]
-            result_msg.indices.append(indices)
+            indices.header = self._header
+            indices.indices = [j * masks[i].shape[1] + k for j,k in zip(*np.where(masks[i]))]
+            cluster.cluster_indices.append(indices)
+            # result_msg.indices.append(indices)
 
-            box = RegionOfInterest()
-            box.x_offset = np.uint32(x1)
-            box.y_offset = np.uint32(y1)
-            box.height = np.uint32(y2 - y1)
-            box.width = np.uint32(x2 - x1)
-            result_msg.boxes.append(box)
+            # box = RegionOfInterest()
+            # box.x_offset = np.uint32(x1)
+            # box.y_offset = np.uint32(y1)
+            # box.height = np.uint32(y2 - y1)
+            # box.width = np.uint32(x2 - x1)
+            # result_msg.boxes.append(box)
 
-        return result_msg
+        return result, cluster
 
     def convert_to_cv_image(self, image_msg):
 
@@ -196,11 +207,11 @@ class Detectron2node(object):
     @staticmethod
     def load_param(param, default=None):
         new_param = rospy.get_param(param, default)
-        rospy.loginfo("[Detectron2] %s: %s", param, new_param)
+        rospy.loginfo("[Detic_ros] %s: %s", param, new_param)
         return new_param
 
 def main(argv):
-    rospy.init_node('detectron2_ros')
+    rospy.init_node('detic_ros')
     node = Detectron2node()
     node.run()
 
