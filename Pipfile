@@ -25,3 +25,6 @@ rospkg = "*"
 python_version = "3.8"
 
 [dev-packages]
+
+[scripts]
+launch = "rosrun detic_ros detection.py"
