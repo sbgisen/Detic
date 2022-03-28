@@ -3,12 +3,10 @@ import sys
 import threading
 import time
 
-import cv2 as cv
 import numpy as np
 import rospkg
 import rospy
 from cv_bridge import CvBridge, CvBridgeError
-from detectron2_ros.msg import Result
 
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog
@@ -20,7 +18,7 @@ from detectron2.utils.visualizer import Visualizer
 pkg = rospkg.RosPack().get_path('detic_ros')
 sys.path.insert(0, pkg + '/third_party/CenterNet2/projects/CenterNet2/')
 from centernet.config import add_centernet_config
-from sensor_msgs.msg import Image, RegionOfInterest
+from sensor_msgs.msg import Image
 from pcl_msgs.msg import PointIndices
 from jsk_recognition_msgs.msg import ClassificationResult
 from jsk_recognition_msgs.msg import ClusterPointIndices
@@ -129,19 +127,10 @@ class Detectron2node(object):
             rate.sleep()
 
     def getResult(self, predictions):
-
-        boxes = predictions.pred_boxes if predictions.has("pred_boxes") else None
-
         if predictions.has("pred_masks"):
             masks = np.asarray(predictions.pred_masks)
         else:
             return
-
-        # result_msg = Result()
-        # result_msg.header = self._header
-        # result_msg.class_ids = predictions.pred_classes if predictions.has("pred_classes") else None
-        # result_msg.class_names = np.array(self._class_names)[result_msg.class_ids.numpy()]
-        # result_msg.scores = predictions.scores if predictions.has("scores") else None
 
         result = ClassificationResult()
         result.header = self._header
@@ -152,19 +141,12 @@ class Detectron2node(object):
 
         cluster = ClusterPointIndices()
         cluster.header = self._header
-        for i, (x1, y1, x2, y2) in enumerate(boxes):
+        for mask in masks:
             indices = PointIndices()
             indices.header = self._header
-            indices.indices = [j * masks[i].shape[1] + k for j,k in zip(*np.where(masks[i]))]
+            mask_idices = np.where(mask)
+            indices.indices = mask_idices[0] * mask.shape[1] + mask_idices[1]
             cluster.cluster_indices.append(indices)
-            # result_msg.indices.append(indices)
-
-            # box = RegionOfInterest()
-            # box.x_offset = np.uint32(x1)
-            # box.y_offset = np.uint32(y1)
-            # box.height = np.uint32(y2 - y1)
-            # box.width = np.uint32(x2 - x1)
-            # result_msg.boxes.append(box)
 
         return result, cluster
 
@@ -173,27 +155,7 @@ class Detectron2node(object):
         if image_msg is None:
             return None
 
-        self._width = image_msg.width
-        self._height = image_msg.height
-        channels = int(len(image_msg.data) / (self._width * self._height))
-
-        encoding = None
-        if image_msg.encoding.lower() in ['rgb8', 'bgr8']:
-            encoding = np.uint8
-        elif image_msg.encoding.lower() == 'mono8':
-            encoding = np.uint8
-        elif image_msg.encoding.lower() == '32fc1':
-            encoding = np.float32
-            channels = 1
-
         cv_img = self._bridge.imgmsg_to_cv2(image_msg, 'bgr8')
-        # cv_img = np.array(image_msg.data).reshape(
-        #     [image_msg.height, image_msg.width, channels])
-
-        # if image_msg.encoding.lower() == 'mono8':
-        #     cv_img = cv.cvtColor(cv_img, cv.COLOR_RGB2GRAY)
-        # else:
-        #     cv_img = cv.cvtColor(cv_img, cv.COLOR_RGB2BGR)
 
         return cv_img
 
